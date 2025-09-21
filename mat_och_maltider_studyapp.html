@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Interaktivt pluggsätt – Mat & Måltider åk 6</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f9fafb; margin: 0; padding: 20px; }
+    h1 { text-align: center; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin: 20px auto; max-width: 700px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .controls { display: flex; justify-content: center; gap: 10px; margin-top: 10px; flex-wrap: wrap;}
+    button { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; background: #2563eb; color: white; font-size: 14px; }
+    button.outline { background: white; color: #2563eb; border: 1px solid #2563eb; }
+    .progress { height: 10px; background: #e5e7eb; border-radius: 5px; overflow: hidden; margin: 10px 0; }
+    .progress-bar { height: 10px; background: #2563eb; width: 0; transition: width 0.3s; }
+    .options { display: grid; gap: 8px; margin-top: 10px; }
+    .option { padding: 10px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; background: white; }
+    .option.correct { background: #bbf7d0; border-color: #22c55e; }
+    .option.wrong { background: #fecaca; border-color: #ef4444; }
+  </style>
+</head>
+<body>
+  <h1>Interaktivt pluggsätt – Mat & Måltider (åk 6)</h1>
+  <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
+  <div id="mode-switch" class="controls">
+    <button onclick="setMode('flash')">Flashcards</button>
+    <button onclick="setMode('quiz')">Quiz</button>
+  </div>
+  <div id="app"></div>
+
+<script>
+const QA = [
+  {q: "Beskriv en bra frukost och förklara varför.", a: "T.ex. yoghurt med müsli och frukt eller grovt bröd med pålägg. Innehåller kolhydrater (energi), protein (bygger kroppen) och vitaminer/mineraler."},
+  {q: "Varför är det viktigt att äta regelbundet?", a: "Ger jämn energi, bättre koncentration och minskar risken att småäta onyttigt."},
+  {q: "Vilka tre delar består tallriksmodellen av?", a: "Kolhydrater, grönsaker/frukt och protein."},
+  {q: "Vad ger kolhydrater kroppen?", a: "Energi."},
+  {q: "Vad har protein för funktion i kroppen?", a: "Bygger upp och reparerar kroppen."},
+  {q: "Varför behöver vi fett?", a: "Ger energi, bygger celler, skyddar organ."},
+  {q: "Vad gör vitaminer och mineraler i kroppen?", a: "Stärker immunförsvaret, behövs för blod, skelett och andra funktioner."},
+  {q: "Vad gör fibrer?", a: "Bra för magen, håller blodsockret jämnt."},
+  {q: "Vad är skillnaden på mättat och omättat fett?", a: "Mättat fett (smör, bacon, ost) är mindre nyttigt, omättat fett (olja, avokado, fisk, nötter) är bra för hjärtat."},
+  {q: "Vad hjälper matcirkeln oss med?", a: "Att planera måltider och få i oss alla näringsämnen."},
+  {q: "Ge exempel på snabba kolhydrater.", a: "Vitt bröd, godis, läsk."},
+  {q: "Ge exempel på långsamma kolhydrater.", a: "Grovt bröd, fullkornspasta, baljväxter."},
+  {q: "Varför är det bättre att äta mer från växtriket än djurriket?", a: "Växtriket (bönor, linser) är nyttigt och klimatsmart, djurriket (kött, ost) har ofta mer mättat fett och större klimatpåverkan."},
+  {q: "Varför är det bra att äta närodlade och säsongsanpassade råvaror?", a: "Mindre transporter, bättre för miljön, billigare, färskare och godare."},
+  {q: "Nämn 5 klimatsmarta mattips.", a: "Ät mer vegetariskt, välj säsongsanpassat, välj närodlat, ta hand om rester, drick vatten istället för läsk."},
+  {q: "Vilka är bra måltidsvanor?", a: "Ät frukost, lunch, middag och mellanmål, drick vatten, ät varierat och lagom stora portioner, ha trevliga måltider."},
+  {q: "Varför är bra mat viktigt för hälsan?", a: "Ger energi, koncentration, ork och minskar risken för sjukdomar."}
+];
+
+let index = 0;
+let flipped = false;
+let learned = Array(QA.length).fill(false);
+let mode = 'flash';
+let quizItems = [];
+let quizStep = 0;
+let quizScore = 0;
+
+function updateProgress() {
+  const done = learned.filter(x=>x).length;
+  const pct = Math.round((done/QA.length)*100);
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+function renderFlash() {
+  const card = QA[index];
+  const app = document.getElementById('app');
+  app.innerHTML = `<div class='card'><div><strong>Kort ${index+1}/${QA.length}</strong></div><div style='min-height:120px;margin:20px 0;font-size:18px;text-align:center;'>${flipped ? card.a : card.q}</div><div class='controls'><button onclick='flip()'>Vänd</button><button class='outline' onclick='prev()'>Föregående</button><button class='outline' onclick='next()'>Nästa</button></div><div class='controls'><button onclick='mark(false)' class='outline'>Öva mer</button><button onclick='mark(true)'>Kan det</button></div></div>`;
+  updateProgress();
+}
+
+function renderQuiz() {
+  if (quizItems.length === 0) {
+    quizItems = [...QA].sort(()=>Math.random()-0.5).slice(0,10);
+    quizStep = 0; quizScore = 0;
+  }
+  const item = quizItems[quizStep];
+  const options = [item.a,...QA.filter(x=>x!==item).map(x=>x.a).sort(()=>Math.random()-0.5).slice(0,3)].sort(()=>Math.random()-0.5);
+  const app = document.getElementById('app');
+  app.innerHTML = `<div class='card'><div><strong>Fråga ${quizStep+1}/${quizItems.length}</strong></div><div style='margin:20px 0;font-size:18px;'>${item.q}</div><div class='options'>${options.map(opt=>`<div class='option' onclick='answer(this,"${opt.replace(/"/g,'&quot;')}")'>${opt}</div>`).join('')}</div><div class='controls'><button onclick='restartQuiz()'>Starta om quiz</button></div><div style='margin-top:10px;'>Poäng: ${quizScore}</div></div>`;
+}
+
+function flip(){flipped=!flipped;renderFlash();}
+function next(){if(index<QA.length-1){index++;flipped=false;renderFlash();}}
+function prev(){if(index>0){index--;flipped=false;renderFlash();}}
+function mark(v){learned[index]=v;next();}
+function setMode(m){mode=m;if(m==='flash'){renderFlash();}else{quizItems=[];renderQuiz();}}
+function answer(el,opt){const item=quizItems[quizStep];if(opt===item.a){el.classList.add('correct');quizScore++;}else{el.classList.add('wrong');}
+ setTimeout(()=>{if(quizStep<quizItems.length-1){quizStep++;renderQuiz();}else{document.getElementById('app').innerHTML=`<div class='card'><h2>Quiz klart!</h2><p>Du fick ${quizScore} av ${quizItems.length} rätt.</p><div class='controls'><button onclick='restartQuiz()'>Starta om</button></div></div>`;}},700);}
+function restartQuiz(){quizItems=[];quizStep=0;quizScore=0;renderQuiz();}
+
+// Startläge
+renderFlash();
+</script>
+</body>
+</html>
